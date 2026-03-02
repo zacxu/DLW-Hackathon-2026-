@@ -1,0 +1,11 @@
+names:
+- smoke
+- fire
+nc: 2
+path: .
+test: datasets/fire/data/test
+test_count: 4306
+train: datasets/fire/data/train
+train_count: 14122
+val: datasets/fire/data/val
+val_count: 3099
