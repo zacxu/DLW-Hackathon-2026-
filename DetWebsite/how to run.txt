@@ -1,5 +1,0 @@
-cmd
-cd C:\Users\User\Desktop\Coding\Projects\DetWebsite
-.venv\Scripts\activate
-cd djangoframe
-python manage.py runserver
