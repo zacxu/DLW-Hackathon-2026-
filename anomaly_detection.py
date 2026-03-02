@@ -46,8 +46,42 @@ def preprocess_video(video_path: str, sequence_length: int, image_height: int, i
     return np.asarray(frames_list, dtype=np.float32)
 
 
-def run_violence_detection(video_path: str, model_path: str = "models/violence_MobileNet.keras") -> float:
-    """Load violence model, preprocess video using model input shape, and return confidence."""
+def preprocess_image_as_sequence(
+    image_path: str, sequence_length: int, image_height: int, image_width: int
+) -> np.ndarray:
+    """Preprocess a single image and repeat it across the sequence dimension."""
+    image = cv2.imread(image_path)
+    if image is None:
+        raise ValueError(f"Unable to read image: {image_path}")
+
+    resized_image = cv2.resize(image, (image_width, image_height))
+    normalized_image = resized_image.astype(np.float32) / 255.0
+    return np.repeat(normalized_image[np.newaxis, ...], sequence_length, axis=0)
+
+
+def preprocess_violence_input(
+    input_path: str, sequence_length: int, image_height: int, image_width: int
+) -> np.ndarray:
+    source_path = Path(input_path)
+    if is_video_file(source_path):
+        return preprocess_video(
+            video_path=input_path,
+            sequence_length=sequence_length,
+            image_height=image_height,
+            image_width=image_width,
+        )
+    if is_image_file(source_path):
+        return preprocess_image_as_sequence(
+            image_path=input_path,
+            sequence_length=sequence_length,
+            image_height=image_height,
+            image_width=image_width,
+        )
+    raise ValueError(f"Unsupported input type for violence model: {source_path}")
+
+
+def run_violence_detection(input_path: str, model_path: str = "models/violence_MobileNet.keras") -> float:
+    """Load violence model, preprocess video/image using model input shape, and return confidence."""
     model = tf.keras.models.load_model(model_path)
 
     input_shape = model.input_shape
@@ -58,8 +92,8 @@ def run_violence_detection(video_path: str, model_path: str = "models/violence_M
     if channels != 3:
         raise ValueError(f"Expected 3-channel RGB/BGR input, got channels={channels}")
 
-    preprocessed_frames = preprocess_video(
-        video_path=video_path,
+    preprocessed_frames = preprocess_violence_input(
+        input_path=input_path,
         sequence_length=int(sequence_length),
         image_height=int(image_height),
         image_width=int(image_width),
@@ -135,28 +169,36 @@ def extract_fire_confidence(detections: list[dict]) -> float:
     return float(max(fire_scores)) if fire_scores else 0.0
 
 
-def run_fire_detection(video_path: str, yolo_model_path: str = "models/yolo11n.pt") -> float:
-    """Run YOLO on a representative video frame and return fire confidence."""
-    frame = extract_frame_for_detection(video_path)
+def run_fire_detection(input_path: str, yolo_model_path: str = "models/fire.pt") -> float:
+    """Run YOLO on an image or representative video frame and return fire confidence."""
+    source_path = Path(input_path)
     yolo_model = YOLO(yolo_model_path)
-    result = yolo_model.predict(source=frame, verbose=False)[0]
+
+    if is_video_file(source_path):
+        frame = extract_frame_for_detection(str(source_path))
+        result = yolo_model.predict(source=frame, verbose=False)[0]
+    elif is_image_file(source_path):
+        result = yolo_model.predict(source=str(source_path), verbose=False)[0]
+    else:
+        raise ValueError(f"Unsupported input type for fire model: {source_path}")
+
     detections = parse_yolo_result(result)
     return extract_fire_confidence(detections)
 
 
 def run_all(
-    video_path: str,
+    input_path: str,
     violence_model_path: str = "models/violence_MobileNet.keras",
-    yolo_model_path: str = "models/yolo11n.pt",
+    yolo_model_path: str = "models/fire.pt",
 ) -> list[dict]:
     """
-    Run all implemented anomaly models on a video and return JSON-ready results.
+    Run all implemented anomaly models on an image/video and return JSON-ready results.
     """
-    source_path = Path(video_path)
+    source_path = Path(input_path)
     if not source_path.exists():
-        raise FileNotFoundError(f"Video file not found: {source_path}")
-    if not is_video_file(source_path):
-        raise ValueError(f"run_all requires a video input, got: {source_path}")
+        raise FileNotFoundError(f"Input file not found: {source_path}")
+    if not is_video_file(source_path) and not is_image_file(source_path):
+        raise ValueError(f"run_all requires an image or video input, got: {source_path}")
 
     violence_confidence = run_violence_detection(str(source_path), violence_model_path)
     fire_confidence = run_fire_detection(str(source_path), yolo_model_path)
@@ -177,7 +219,7 @@ def run_all(
 
 def run_yolo_detection(
     input_path: str,
-    yolo_model_path: str = "models/yolo11n.pt",
+    yolo_model_path: str = "models/fire.pt",
     output_dir: str = "outputs",
     visualization_root: str = "datasets/fire",
 ) -> Path:
@@ -234,7 +276,7 @@ def run_yolo_detection(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run violence detection score and optional YOLO bounding-box visualization."
+        description="Run violence/fire detection on image or video inputs."
     )
     parser.add_argument("input_path", type=str, help="Path to input video or image file.")
     parser.add_argument(
@@ -251,13 +293,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--run-all",
         action="store_true",
-        help="Run all implemented models on a video and print JSON output.",
+        help="Run all implemented models on image/video input and print JSON output.",
     )
     parser.add_argument(
         "--yolo-model-path",
         type=str,
-        default="models/yolo11n.pt",
-        help="Path to YOLO model file (default: models/yolo11n.pt).",
+        default="models/fire.pt",
+        help="Path to YOLO model file (default: models/fire.pt).",
     )
     parser.add_argument(
         "--output-dir",
@@ -291,20 +333,20 @@ def main() -> None:
             raise FileNotFoundError(f"YOLO model file not found: {yolo_model_path}")
 
         all_results = run_all(
-            video_path=str(input_path),
+            input_path=str(input_path),
             violence_model_path=str(violence_model_path),
             yolo_model_path=str(yolo_model_path),
         )
         print(json.dumps(all_results, indent=2))
         return
 
-    if is_video_file(input_path):
-        if not violence_model_path.exists():
-            raise FileNotFoundError(f"Violence model file not found: {violence_model_path}")
-        confidence = run_violence_detection(str(input_path), str(violence_model_path))
-        print(f"Confidence score: {confidence:.6f}")
-    else:
-        print("Skipping violence confidence scoring (input is not a supported video file).")
+    if not violence_model_path.exists():
+        raise FileNotFoundError(f"Violence model file not found: {violence_model_path}")
+    if not is_video_file(input_path) and not is_image_file(input_path):
+        raise ValueError(f"Unsupported input type: {input_path}")
+
+    confidence = run_violence_detection(str(input_path), str(violence_model_path))
+    print(f"Confidence score: {confidence:.6f}")
 
     if args.run_yolo:
         yolo_model_path = Path(args.yolo_model_path)
