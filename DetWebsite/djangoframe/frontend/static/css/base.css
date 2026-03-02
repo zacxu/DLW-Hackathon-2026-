@@ -1,0 +1,168 @@
+body {
+    font-family: 'Arial';
+    background-color: #1f1f1f;
+    color: #cccccc;
+    line-height: 1.5;
+    overflow-x: hidden;
+}
+
+.small {
+    font-size: 12px;
+}
+
+.separator {
+    margin: 0px 10px;
+    color: black;
+}
+
+.topbarbtn {
+    width: auto;
+    height: 30px;
+    background-color: #007BFF;
+    color: white;
+    border: 2px groove #81b829;
+    cursor: pointer;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    margin: 0px 2px;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.sidebarbtn {
+    width: auto;
+    height: 30px;
+    background-color: #007BFF;
+    color: white;
+    border: 2px groove #81b829;
+    cursor: pointer;
+    box-sizing: border-box;
+    display: block;
+    margin: 10px 0px 0px 10px;
+}
+
+.crypto-btn {
+    background-color: #007BFF;
+    color: white;
+    border: 2px groove #81b829;
+    cursor: pointer;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 10px;
+    margin: 10px 0;
+    width: 100%;
+}
+
+.delete-btn {
+    background-color: red;
+    color: white;
+    border: none;
+    cursor: pointer;
+    padding: 2px 5px;
+    margin-left: 10px;
+}
+
+#topbar {
+    width: 100%;
+    height: 38px;
+    background-color: #398285;
+    text-align: left;
+    font-size: 20px;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    padding: 10px;
+}
+
+#topbar form {
+    display: flex;
+    align-items: center;
+}
+
+#smallsearch {
+    font-size: 12px;
+    margin: 0px 0px 0px 3px;
+}
+
+#sidebar {
+    font-family: 'Arial';
+    background-color: #1a3c7c;
+    position: absolute;
+    right: 0px;
+    top: 44px;
+    height: 630px;
+    width: 360px;
+}
+
+#watchlist {
+    width: 100%;
+    margin: 10px 20px;
+}
+
+#canvas2 {
+    width: 1554px;
+    height: 820px;
+    position: absolute;
+    left: 0px;
+    top: 44px;
+    background-color: rgb(150, 23, 23);
+}
+
+#canvas1 {
+    resize: both;
+}
+
+#searchsymbol {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgb(0,0,0);
+    background-color: rgba(0,0,0,0.4);
+}
+
+#searchcontent {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    width: 600px;
+    height: 400px;
+}
+
+#symbolsuggestions {
+    background-color: #fefefe;
+    border: 1px solid #888;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+#searchinput {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    box-sizing: border-box;
+}
