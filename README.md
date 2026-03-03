@@ -123,15 +123,4 @@ It contains:
 - API test payloads
 - local smoke test command
 
-## Submission Checklist (Public Access)
-
-I cannot change Git provider settings from local code, so complete these before submission:
-
-1. Push all required files to your remote repository
-2. Set repository visibility to **Public**
-3. Open the repository in an incognito/private browser tab to verify no login is required
-4. Confirm these files are visible online:
-   - `README.md`
-   - `testbench/SETUP_AND_RUN.md`
-   - `testbench/smoke_test_local.py`
 
