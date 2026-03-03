@@ -1,0 +1,6 @@
+{
+  "location": "Building A - Floor 2",
+  "incident_type": "Fire/Smoke",
+  "severity": "high",
+  "notes": "Sample standalone emergency payload for judge testing."
+}

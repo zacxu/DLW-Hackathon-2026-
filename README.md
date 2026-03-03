@@ -1,93 +1,137 @@
 # Aegis Incident Console
 
-## Prerequisites
-- Install dependencies: `pip install -r requirements.txt`
-- Ensure model files exist:
-  - `models/violence_MobileNet.keras`
-  - `models/yolo11n.pt`
+Aegis Incident Console is a Django-based incident monitoring demo that combines:
 
-## Import and run
-```python
-import anomaly_detection as ad
+1. **Anomaly detection inference** on uploaded media (violence + fire models)
+2. **Emergency action workflows** (inference-driven + standalone)
+3. **RL policy route planning** using the `Policy_rl_agent` module on a Singapore road graph
 
-results = ad.run_all("PATH TO THE VIDEO INPUT")
-print(results)
+
+## Repository Structure
+
+- `djangoframe/` Django project and frontend UI
+- `anomaly_detection.py` combined model inference entrypoint
+- `models/` local model weights (`violence_MobileNet.keras`, `fire.pt`, etc.)
+- `Policy_rl_agent/` reinforcement-learning route planning module
+- `SAMPLE_VIDEOS/` sample media for testing
+- `testbench/` judge test assets and step-by-step test instructions
+
+## Requirements
+
+- Python `3.10` recommended
+- Windows/macOS/Linux
+- Internet access (required for OSMnx graph download used by route planning)
+- GUI-capable environment for matplotlib interactive route selection
+  - RL route planning requires clicking points on a map window
+
+## Dependencies
+
+Install all dependencies from:
+
+```bash
+pip install -r requirements.txt
 ```
 
-`run_all(...)` returns a list of dicts:
-- `detected_anomaly`
-- `model_used`
-- `confidence`
+Main libraries used:
+- `django`
+- `tensorflow`, `keras`
+- `torch`
+- `ultralytics`
+- `opencv-python`
+- `osmnx`, `networkx`, `gymnasium`
+- `matplotlib`
 
-You can also run it from command line and itll print the json to terminal
-`python anomaly_detection.py --run-all <PATH TO VIDEO>`
+## Model Files
 
-From what i manually trial and errored, violence needs a high threshold (>80?) and fire needs a low threshold (>30?) tbh it kinda sucks :(
+Expected model files in `models/`:
 
-## Django Frontend (run both models from UI)
-1. Activate your venv and install deps:
-   `pip install -r requirements.txt`
-2. Start Django:
-   ```
-   cd djangoframe
-   python manage.py runserver
-   ```
-3. Open:
-   `http://127.0.0.1:8000/`
+- `models/violence_MobileNet.keras`
+- `models/fire.pt`
 
-Available pages:
-- `/` dashboard
-- `/fire/` fire-focused view
-- `/smoke/` smoke/violence-focused view
+## Quick Setup (Local)
 
-Inference endpoint used by the frontend:
-- `POST /api/infer/` with form-data field `media` (image or video)
-- Returns both model outputs from `anomaly_detection.run_all(...)`
-- Upload limit is configurable with env var `MAX_MEDIA_UPLOAD_MB` (default: `1024`).
+1. Clone repo and enter folder
+2. Create and activate virtual environment
+3. Install dependencies
+4. Run Django server
 
-Policy route-planning endpoint used by the frontend:
-- `POST /api/route-plan/` (empty JSON body is fine)
-- Optional JSON field:
-  - `goal_count` (positive integer). If set, map selection expects `1 start + goal_count` clicks.
-- Opens matplotlib interactive selection on the host machine:
-  - click `1` start point and configured number of goal points on the road graph
-  - route inference runs automatically after selection
-  - then a matplotlib route window opens to visualize the policy path
-- Returns route summary + node path from `Policy_rl_agent` checkpoint.
+### Windows (PowerShell)
 
-Emergency-contact endpoint used by the frontend:
-- `POST /api/emergency/` with JSON body containing:
-  - `results` (from `/api/infer/`)
-  - `location` (optional)
-  - `notes` (optional)
-- Returns:
-  - `incident_id`
-  - `summary`
-  - `call_number` (defaults to `911`, override via `EMERGENCY_NUMBER` env var)
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+cd djangoframe
+python manage.py runserver
+```
 
-Frontend emergency flow:
-- Run inference, then open the `Emergency Actions` panel.
-- Fill location/notes and click `Prepare Emergency Contact`.
-- Use the generated call link and incident summary.
+### macOS/Linux
 
-Standalone emergency endpoint:
-- `POST /api/emergency/standalone/` with JSON body containing:
-  - `location` (optional)
-  - `incident_type` (optional)
-  - `severity` (optional)
-  - `notes` (optional)
-- This works without inference results.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd djangoframe
+python manage.py runserver
+```
 
-Contact-us endpoint:
-- `POST /api/contact/` with JSON body containing:
-  - `name`
-  - `email`
-  - `topic`
-  - `message`
+Open:
 
-UI additions:
-- Media preview before inference.
-- Result cards with confidence meters and JSON download.
-- FAQ section with search.
-- Contact us form with ticket IDs.
-- Standalone emergency section with summary + call link.
+- `http://127.0.0.1:8000/`
+
+## UI Features
+
+- Media upload + combined inference (`/api/infer/`)
+- Risk threshold slider and result cards
+- Emergency summary generation from inference output (`/api/emergency/`)
+- Standalone emergency summary (`/api/emergency/standalone/`)
+- Contact form endpoint (`/api/contact/`)
+- RL route planner (`/api/route-plan/`) with interactive matplotlib map selection
+
+## API Endpoints
+
+- `POST /api/infer/`
+  - form-data: `media` (image/video)
+  - returns combined model results
+- `POST /api/route-plan/`
+  - optional JSON: `goal_count` (positive integer), `show_route_plot` (bool)
+  - opens interactive map for selecting `1 start + K goals`
+  - runs policy inference and returns route details
+- `POST /api/emergency/`
+  - JSON: `results`, optional `location`, `notes`
+- `POST /api/emergency/standalone/`
+  - JSON: optional `location`, `incident_type`, `severity`, `notes`
+- `POST /api/contact/`
+  - JSON: `name`, `email`, `topic`, `message`
+
+## Environment Variables
+
+- `EMERGENCY_NUMBER` (default: `911`)
+- `MAX_MEDIA_UPLOAD_MB` (default: `1024`)
+- `POLICY_AGENT_CONFIG` (optional override config path)
+- `POLICY_AGENT_CHECKPOINT` (optional override checkpoint path)
+
+## Judge/Test Instructions
+
+Use the dedicated folder:
+
+- [testbench/SETUP_AND_RUN.md](./testbench/SETUP_AND_RUN.md)
+
+It contains:
+- full setup steps
+- quick manual UI test flow
+- API test payloads
+- local smoke test command
+
+## Submission Checklist (Public Access)
+
+I cannot change Git provider settings from local code, so complete these before submission:
+
+1. Push all required files to your remote repository
+2. Set repository visibility to **Public**
+3. Open the repository in an incognito/private browser tab to verify no login is required
+4. Confirm these files are visible online:
+   - `README.md`
+   - `testbench/SETUP_AND_RUN.md`
+   - `testbench/smoke_test_local.py`
+
