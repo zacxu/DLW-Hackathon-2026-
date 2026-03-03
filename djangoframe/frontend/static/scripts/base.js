@@ -44,6 +44,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const contactClearButton = document.getElementById("contact-clear-btn");
     const contactStatus = document.getElementById("contact-status");
 
+    const routePlanButton = document.getElementById("route-plan-btn");
+    const routeCopyButton = document.getElementById("route-copy-btn");
+    const routeStatus = document.getElementById("route-status");
+    const routeSummary = document.getElementById("route-summary");
+    const routeGoalCount = document.getElementById("route-goal-count");
+
     if (
         !form ||
         !statusMessage ||
@@ -93,10 +99,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const emergencyEndpoint = form.dataset.emergencyEndpoint;
     const emergencyStandaloneEndpoint = form.dataset.emergencyStandaloneEndpoint;
     const contactEndpoint = form.dataset.contactEndpoint;
+    const routeEndpoint = form.dataset.routeEndpoint;
     const csrfInput = form.querySelector("input[name='csrfmiddlewaretoken']");
 
     let latestResults = [];
     let latestResultsJson = "";
+    let latestRouteJson = "";
     let previewUrl = null;
 
     const setStatus = (element, type, text) => {
@@ -226,14 +234,90 @@ document.addEventListener("DOMContentLoaded", () => {
                 "Content-Type": "application/json",
                 "X-CSRFToken": csrfInput ? csrfInput.value : "",
             },
+            credentials: "same-origin",
             body: JSON.stringify(payload),
         });
-        const data = await response.json();
+        const raw = await response.text();
+        let data = {};
+        try {
+            data = raw ? JSON.parse(raw) : {};
+        } catch (error) {
+            data = { success: false, error: raw || "Non-JSON response from server." };
+        }
         if (!response.ok || !data.success) {
-            throw new Error(data.error || "Request failed.");
+            throw new Error(data.error || `Request failed with HTTP ${response.status}.`);
         }
         return data;
     };
+
+    if (
+        routePlanButton &&
+        routeCopyButton &&
+        routeStatus &&
+        routeSummary &&
+        routeEndpoint
+    ) {
+        routePlanButton.addEventListener("click", async () => {
+            routePlanButton.disabled = true;
+            latestRouteJson = "";
+            routeCopyButton.hidden = true;
+            routeSummary.hidden = true;
+            routeSummary.textContent = "";
+
+            const goalCountRaw = routeGoalCount ? routeGoalCount.value.trim() : "";
+            if (goalCountRaw) {
+                const parsedGoalCount = Number(goalCountRaw);
+                if (!Number.isInteger(parsedGoalCount) || parsedGoalCount <= 0) {
+                    setStatus(routeStatus, "error", "Goal count must be a positive integer.");
+                    routePlanButton.disabled = false;
+                    return;
+                }
+            }
+
+            setStatus(
+                routeStatus,
+                "",
+                "Opening matplotlib selector. Click 1 start + goals on the map, then wait for route inference.",
+            );
+
+            try {
+                const payload = {};
+                if (goalCountRaw) {
+                    payload.goal_count = Number(goalCountRaw);
+                }
+                const data = await sendJson(routeEndpoint, payload);
+
+                latestRouteJson = JSON.stringify(data.route, null, 2);
+                routeSummary.textContent = latestRouteJson;
+                routeSummary.hidden = false;
+                routeCopyButton.hidden = false;
+
+                const completed = data.route && data.route.completed_all_goals ? "yes" : "no";
+                const travelTimeSec = Number(data.route.estimated_travel_time_sec || 0).toFixed(2);
+                setStatus(
+                    routeStatus,
+                    "success",
+                    `Route generated. Completed all goals: ${completed}. Estimated travel time: ${travelTimeSec}s.`,
+                );
+            } catch (error) {
+                setStatus(routeStatus, "error", error.message);
+            } finally {
+                routePlanButton.disabled = false;
+            }
+        });
+
+        routeCopyButton.addEventListener("click", async () => {
+            if (!latestRouteJson) {
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(latestRouteJson);
+                setStatus(routeStatus, "success", "Route JSON copied to clipboard.");
+            } catch (error) {
+                setStatus(routeStatus, "error", "Clipboard copy failed. Copy manually from the route panel.");
+            }
+        });
+    }
 
     mediaInput.addEventListener("change", () => {
         clearResults();
@@ -257,11 +341,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: {
                     "X-CSRFToken": csrfInput ? csrfInput.value : "",
                 },
+                credentials: "same-origin",
                 body: formData,
             });
-            const data = await response.json();
+            const raw = await response.text();
+            let data = {};
+            try {
+                data = raw ? JSON.parse(raw) : {};
+            } catch (error) {
+                data = {
+                    success: false,
+                    error: raw || `Inference request failed with HTTP ${response.status}.`,
+                };
+            }
             if (!response.ok || !data.success) {
-                throw new Error(data.error || "Inference request failed.");
+                throw new Error(data.error || `Inference request failed with HTTP ${response.status}.`);
             }
 
             latestResults = data.results || [];
@@ -272,7 +366,10 @@ document.addEventListener("DOMContentLoaded", () => {
             renderResultCards(latestResults);
             setStatus(statusMessage, "success", "Inference completed successfully.");
         } catch (error) {
-            setStatus(statusMessage, "error", error.message);
+            const fallback = mediaInput.files && mediaInput.files.length > 0
+                ? "Network error during upload/inference. If the video is large, try a smaller file or raise server upload limits."
+                : "Inference request failed.";
+            setStatus(statusMessage, "error", error.message || fallback);
         } finally {
             runButton.disabled = false;
         }

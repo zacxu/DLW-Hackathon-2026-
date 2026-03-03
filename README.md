@@ -1,4 +1,4 @@
-# anomaly_detection import usage
+# Aegis Incident Console
 
 ## Prerequisites
 - Install dependencies: `pip install -r requirements.txt`
@@ -43,6 +43,17 @@ Available pages:
 Inference endpoint used by the frontend:
 - `POST /api/infer/` with form-data field `media` (image or video)
 - Returns both model outputs from `anomaly_detection.run_all(...)`
+- Upload limit is configurable with env var `MAX_MEDIA_UPLOAD_MB` (default: `1024`).
+
+Policy route-planning endpoint used by the frontend:
+- `POST /api/route-plan/` (empty JSON body is fine)
+- Optional JSON field:
+  - `goal_count` (positive integer). If set, map selection expects `1 start + goal_count` clicks.
+- Opens matplotlib interactive selection on the host machine:
+  - click `1` start point and configured number of goal points on the road graph
+  - route inference runs automatically after selection
+  - then a matplotlib route window opens to visualize the policy path
+- Returns route summary + node path from `Policy_rl_agent` checkpoint.
 
 Emergency-contact endpoint used by the frontend:
 - `POST /api/emergency/` with JSON body containing:

@@ -36,8 +36,35 @@
                 <p class="subtext">{% block subtext %}Upload one image or video and run both models in a single request.{% endblock %}</p>
                 <div class="hero-actions">
                     <a href="#inference-section" class="hero-link">Start Analysis</a>
+                    <a href="#route-planner-section" class="hero-link">Plan RL Route</a>
                     <a href="#manual-emergency-section" class="hero-link danger">Emergency Flow</a>
                 </div>
+            </section>
+
+            <section class="panel" id="route-planner-section">
+                <h3>RL Route Planner</h3>
+                <p class="subtext">
+                    Click <strong>Select On Map + Plan Route</strong>, then choose one start point and goal points
+                    directly on the matplotlib map window. After selection, policy inference runs automatically and
+                    the route output appears below.
+                </p>
+                <label for="route-goal-count">Number of goals</label>
+                <input
+                    id="route-goal-count"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="Optional"
+                >
+                <p class="subtext compact">
+                    If provided, you will click 1 start + this many goals on the map.
+                </p>
+                <div class="action-row">
+                    <button id="route-plan-btn" type="button" class="neutral-btn">Select On Map + Plan Route</button>
+                    <button id="route-copy-btn" type="button" class="ghost-btn" hidden>Copy Route JSON</button>
+                </div>
+                <p id="route-status" class="status" aria-live="polite"></p>
+                <pre id="route-summary" hidden></pre>
             </section>
 
             <section class="panel" id="inference-section">
@@ -45,6 +72,7 @@
                 <form
                     id="inference-form"
                     data-endpoint="{% url 'run_inference' %}"
+                    data-route-endpoint="{% url 'plan_policy_route' %}"
                     data-emergency-endpoint="{% url 'contact_emergency' %}"
                     data-emergency-standalone-endpoint="{% url 'contact_emergency_standalone' %}"
                     data-contact-endpoint="{% url 'submit_contact_message' %}"

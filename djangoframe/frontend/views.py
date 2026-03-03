@@ -6,15 +6,20 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from django.core.exceptions import RequestDataTooBig
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST
+
+from .policy_planner import build_policy_route
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MODELS_DIR = PROJECT_ROOT / "models"
 VIOLENCE_MODEL_PATH = MODELS_DIR / "violence_MobileNet.keras"
 FIRE_MODEL_PATH = MODELS_DIR / "fire.pt"
 EMERGENCY_NUMBER = os.getenv("EMERGENCY_NUMBER", "911")
+MAX_MEDIA_UPLOAD_MB = int(os.getenv("MAX_MEDIA_UPLOAD_MB", "1024"))
+MAX_MEDIA_UPLOAD_BYTES = MAX_MEDIA_UPLOAD_MB * 1024 * 1024
 SUPPORTED_SUFFIXES = {
     ".avi",
     ".mp4",
@@ -126,9 +131,34 @@ def _new_incident_payload(incident_id: str, created_at: str, summary: str, messa
 
 @require_POST
 def run_inference(request):
-    uploaded_file = request.FILES.get("media")
+    try:
+        uploaded_file = request.FILES.get("media")
+    except RequestDataTooBig:
+        return JsonResponse(
+            {
+                "success": False,
+                "error": (
+                    f"Uploaded file is too large for this server. "
+                    f"Current limit: {MAX_MEDIA_UPLOAD_MB} MB."
+                ),
+            },
+            status=413,
+        )
+
     if uploaded_file is None:
         return JsonResponse({"success": False, "error": "No file uploaded under field 'media'."}, status=400)
+
+    if uploaded_file.size and uploaded_file.size > MAX_MEDIA_UPLOAD_BYTES:
+        return JsonResponse(
+            {
+                "success": False,
+                "error": (
+                    f"Uploaded file exceeds limit ({MAX_MEDIA_UPLOAD_MB} MB). "
+                    f"Received: {uploaded_file.size / (1024 * 1024):.2f} MB."
+                ),
+            },
+            status=413,
+        )
 
     suffix = Path(uploaded_file.name).suffix.lower()
     if suffix not in SUPPORTED_SUFFIXES:
@@ -288,5 +318,28 @@ def submit_contact_message(request):
             "ticket_id": ticket_id,
             "created_at": created_at,
             "message": "Message received. Our team will follow up shortly.",
+        }
+    )
+
+
+@require_POST
+def plan_policy_route(request):
+    try:
+        data = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "error": "Invalid JSON body."}, status=400)
+
+    try:
+        route = build_policy_route(project_root=PROJECT_ROOT, payload=data)
+    except ValueError as exc:
+        return JsonResponse({"success": False, "error": str(exc)}, status=400)
+    except Exception as exc:
+        return JsonResponse({"success": False, "error": str(exc)}, status=500)
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Policy route generated.",
+            "route": route,
         }
     )
