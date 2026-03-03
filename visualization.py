@@ -2,7 +2,6 @@ import os, cv2, yaml, random, numpy as np
 from PIL import Image
 from glob import glob
 from matplotlib import pyplot as plt
-from torchvision import transforms as T
 
 class Visualization:
 

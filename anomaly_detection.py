@@ -7,9 +7,6 @@ import numpy as np
 import tensorflow as tf
 from ultralytics import YOLO
 
-import visualization as visualization_module
-from visualization import Visualization
-
 VIDEO_SUFFIXES = {".avi", ".mp4", ".mov", ".mkv", ".wmv", ".webm", ".m4v"}
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 
@@ -226,6 +223,9 @@ def run_yolo_detection(
     """
     Run YOLO on an input image or representative video frame and save annotated output image.
     """
+    import visualization as visualization_module
+    from visualization import Visualization
+
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 

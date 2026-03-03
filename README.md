@@ -23,3 +23,60 @@ You can also run it from command line and itll print the json to terminal
 `python anomaly_detection.py --run-all <PATH TO VIDEO>`
 
 From what i manually trial and errored, violence needs a high threshold (>80?) and fire needs a low threshold (>30?) tbh it kinda sucks :(
+
+## Django Frontend (run both models from UI)
+1. Activate your venv and install deps:
+   `pip install -r requirements.txt`
+2. Start Django:
+   ```
+   cd djangoframe
+   python manage.py runserver
+   ```
+3. Open:
+   `http://127.0.0.1:8000/`
+
+Available pages:
+- `/` dashboard
+- `/fire/` fire-focused view
+- `/smoke/` smoke/violence-focused view
+
+Inference endpoint used by the frontend:
+- `POST /api/infer/` with form-data field `media` (image or video)
+- Returns both model outputs from `anomaly_detection.run_all(...)`
+
+Emergency-contact endpoint used by the frontend:
+- `POST /api/emergency/` with JSON body containing:
+  - `results` (from `/api/infer/`)
+  - `location` (optional)
+  - `notes` (optional)
+- Returns:
+  - `incident_id`
+  - `summary`
+  - `call_number` (defaults to `911`, override via `EMERGENCY_NUMBER` env var)
+
+Frontend emergency flow:
+- Run inference, then open the `Emergency Actions` panel.
+- Fill location/notes and click `Prepare Emergency Contact`.
+- Use the generated call link and incident summary.
+
+Standalone emergency endpoint:
+- `POST /api/emergency/standalone/` with JSON body containing:
+  - `location` (optional)
+  - `incident_type` (optional)
+  - `severity` (optional)
+  - `notes` (optional)
+- This works without inference results.
+
+Contact-us endpoint:
+- `POST /api/contact/` with JSON body containing:
+  - `name`
+  - `email`
+  - `topic`
+  - `message`
+
+UI additions:
+- Media preview before inference.
+- Result cards with confidence meters and JSON download.
+- FAQ section with search.
+- Contact us form with ticket IDs.
+- Standalone emergency section with summary + call link.

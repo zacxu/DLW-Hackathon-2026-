@@ -1,140 +1,417 @@
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("inference-form");
+    const statusMessage = document.getElementById("status-message");
+    const runButton = document.getElementById("run-btn");
+    const mediaInput = document.getElementById("media-input");
+    const selectedFile = document.getElementById("selected-file");
+    const previewWrapper = document.getElementById("preview-wrapper");
+    const mediaPreview = document.getElementById("media-preview");
+    const thresholdRange = document.getElementById("threshold-range");
+    const thresholdValue = document.getElementById("threshold-value");
+    const resultsPanel = document.getElementById("results-panel");
+    const riskBanner = document.getElementById("risk-banner");
+    const resultCards = document.getElementById("result-cards");
+    const downloadResultsButton = document.getElementById("download-results-btn");
 
-    // Interval button functionality
-    const intervalButton = document.getElementById("intervalbtn");
-    intervalButton.addEventListener('click', function(e) {
-        alert("WIP");
-    });
+    const emergencyPanel = document.getElementById("emergency-panel");
+    const emergencyStatus = document.getElementById("emergency-status");
+    const prepareEmergencyButton = document.getElementById("prepare-emergency-btn");
+    const callEmergencyLink = document.getElementById("call-emergency-link");
+    const copySummaryButton = document.getElementById("copy-summary-btn");
+    const incidentSummary = document.getElementById("incident-summary");
+    const incidentLocation = document.getElementById("incident-location");
+    const incidentNotes = document.getElementById("incident-notes");
 
-    // Search button functionality
-    const searchButton = document.querySelector('.topbarbtn img[alt="Search Symbol"]').parentElement;
-    const searchsymbol = document.getElementById("searchsymbol");
-    const closebtn = document.getElementsByClassName("close")[0];
+    const manualLocation = document.getElementById("manual-location");
+    const manualIncidentType = document.getElementById("manual-incident-type");
+    const manualSeverity = document.getElementById("manual-severity");
+    const manualNotes = document.getElementById("manual-notes");
+    const manualEmergencyButton = document.getElementById("manual-emergency-btn");
+    const manualCallLink = document.getElementById("manual-call-link");
+    const manualCopySummaryButton = document.getElementById("manual-copy-summary-btn");
+    const manualEmergencyStatus = document.getElementById("manual-emergency-status");
+    const manualIncidentSummary = document.getElementById("manual-incident-summary");
 
-    searchButton.addEventListener('click', function(event) {
-        event.preventDefault();
-        searchsymbol.style.display = "block";
-    });
+    const faqSearch = document.getElementById("faq-search");
+    const faqList = document.getElementById("faq-list");
 
-    closebtn.onclick = function() {
-        searchsymbol.style.display = "none";
+    const contactForm = document.getElementById("contact-form");
+    const contactName = document.getElementById("contact-name");
+    const contactEmail = document.getElementById("contact-email");
+    const contactTopic = document.getElementById("contact-topic");
+    const contactMessage = document.getElementById("contact-message");
+    const contactSubmitButton = document.getElementById("contact-submit-btn");
+    const contactClearButton = document.getElementById("contact-clear-btn");
+    const contactStatus = document.getElementById("contact-status");
+
+    if (
+        !form ||
+        !statusMessage ||
+        !runButton ||
+        !mediaInput ||
+        !selectedFile ||
+        !previewWrapper ||
+        !mediaPreview ||
+        !thresholdRange ||
+        !thresholdValue ||
+        !resultsPanel ||
+        !riskBanner ||
+        !resultCards ||
+        !downloadResultsButton ||
+        !emergencyPanel ||
+        !emergencyStatus ||
+        !prepareEmergencyButton ||
+        !callEmergencyLink ||
+        !copySummaryButton ||
+        !incidentSummary ||
+        !incidentLocation ||
+        !incidentNotes ||
+        !manualLocation ||
+        !manualIncidentType ||
+        !manualSeverity ||
+        !manualNotes ||
+        !manualEmergencyButton ||
+        !manualCallLink ||
+        !manualCopySummaryButton ||
+        !manualEmergencyStatus ||
+        !manualIncidentSummary ||
+        !faqSearch ||
+        !faqList ||
+        !contactForm ||
+        !contactName ||
+        !contactEmail ||
+        !contactTopic ||
+        !contactMessage ||
+        !contactSubmitButton ||
+        !contactClearButton ||
+        !contactStatus
+    ) {
+        return;
     }
 
-    window.onclick = function(event) {
-        if (event.target == searchsymbol) {
-            searchsymbol.style.display = "none";
+    const inferEndpoint = form.dataset.endpoint;
+    const emergencyEndpoint = form.dataset.emergencyEndpoint;
+    const emergencyStandaloneEndpoint = form.dataset.emergencyStandaloneEndpoint;
+    const contactEndpoint = form.dataset.contactEndpoint;
+    const csrfInput = form.querySelector("input[name='csrfmiddlewaretoken']");
+
+    let latestResults = [];
+    let latestResultsJson = "";
+    let previewUrl = null;
+
+    const setStatus = (element, type, text) => {
+        element.className = `status ${type || ""}`.trim();
+        element.textContent = text;
+    };
+
+    const clearResults = () => {
+        latestResults = [];
+        latestResultsJson = "";
+        resultsPanel.hidden = true;
+        emergencyPanel.hidden = true;
+        resultCards.innerHTML = "";
+        riskBanner.textContent = "";
+        incidentSummary.hidden = true;
+        incidentSummary.textContent = "";
+        callEmergencyLink.hidden = true;
+        copySummaryButton.hidden = true;
+    };
+
+    const updateThresholdDisplay = () => {
+        thresholdValue.textContent = Number(thresholdRange.value).toFixed(2);
+        if (latestResults.length > 0) {
+            renderRiskBanner(latestResults);
+            renderResultCards(latestResults);
         }
-    }
+    };
 
-    // Search symbol functionality
-    const searchInput = document.getElementById("searchinput");
-    const suggestions = document.getElementById("suggestions");
-
-    searchInput.addEventListener("input", function() {
-        const filter = searchInput.value.toLowerCase();
-        const options = suggestions.getElementsByTagName("option");
-        for (let i = 0; i < options.length; i++) {
-            const txtValue = options[i].value;
-            if (txtValue.toLowerCase().indexOf(filter) > -1) {
-                options[i].style.display = "";
-            } else {
-                options[i].style.display = "none";
-            }
+    const renderRiskBanner = (results) => {
+        if (!results || results.length === 0) {
+            riskBanner.className = "risk-banner low";
+            riskBanner.textContent = "No detections were returned.";
+            return;
         }
-    });
+        const threshold = Number(thresholdRange.value);
+        const maxConfidence = Math.max(...results.map((row) => Number(row.confidence) || 0));
+        const isHighRisk = maxConfidence >= threshold;
+        riskBanner.className = isHighRisk ? "risk-banner high" : "risk-banner low";
+        riskBanner.textContent = isHighRisk
+            ? `Alert: max confidence ${maxConfidence.toFixed(6)} exceeds threshold ${threshold.toFixed(2)}.`
+            : `Nominal: max confidence ${maxConfidence.toFixed(6)} is below threshold ${threshold.toFixed(2)}.`;
+    };
 
-    // Pressing "Enter" when searching for symbol
-    searchInput.addEventListener("keypress", function(event) {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            const symbol = searchInput.value.trim().toLowerCase();
-            if (symbol) {
-                // Check if the button already exists
-                const existingButton = Array.from(document.querySelectorAll('.crypto-btn')).find(btn => btn.textContent.trim().toLowerCase().startsWith(symbol));
-                if (existingButton) {
-                    alert(`${symbol} is already in the sidebar.`);
-                    return;
-                }
-                
-                // Send AJAX request to update sidebar
-                fetch('/update_sidebar', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    body: JSON.stringify({ symbol: symbol })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const sidebar = document.getElementById("sidebar");
-                        sidebar.innerHTML = '';
-                        const watchlistitem = document.createElement("button");
-                        watchlistitem.className = "crypto-btn";
-                        watchlistitem.innerHTML = `${symbol} <span class="delete-btn">X</span>`;
-                        sidebar.appendChild(watchlistitem);
-
-                        // Add delete functionality to button
-                        watchlistitem.querySelector('.delete-btn').addEventListener('click', function(event) {
-                            event.stopPropagation();
-                            watchlistitem.remove();
-                        });
-
-                        closeSearchPopup();
-                    }
-                });
-
-                // Check for specific symbols and add respective buttons
-                if (symbol === 'bitcoin' || symbol === 'ethereum') {
-                    const sidebar = document.getElementById("sidebar");
-                    const watchlistitem = document.createElement("button");
-                    watchlistitem.className = "crypto-btn";
-                    watchlistitem.innerHTML = `${symbol} <span class="delete-btn">X</span>`;
-                    sidebar.appendChild(watchlistitem);
-
-                    // Add delete functionality to button
-                    watchlistitem.querySelector('.delete-btn').addEventListener('click', function(event) {
-                        event.stopPropagation();
-                        watchlistitem.remove();
-                    });
-
-                    closeSearchPopup();
-                }
-            }
+    const renderResultCards = (results) => {
+        const threshold = Number(thresholdRange.value);
+        resultCards.innerHTML = "";
+        if (!results || results.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "subtext compact";
+            empty.textContent = "No results to display.";
+            resultCards.appendChild(empty);
+            return;
         }
-    });
 
-    // Function to get CSRF token
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
+        for (const row of results) {
+            const confidence = Number(row.confidence) || 0;
+            const high = confidence >= threshold;
+            const status = high ? "Above threshold" : "Below threshold";
+            const card = document.createElement("article");
+            card.className = "result-card";
+            card.innerHTML = `
+                <div class="result-head-row">
+                    <h4>${row.detected_anomaly}</h4>
+                    <span class="badge ${high ? "badge-danger" : "badge-safe"}">${status}</span>
+                </div>
+                <p class="result-model">Model: ${row.model_used}</p>
+                <p class="result-confidence">Confidence: ${confidence.toFixed(6)}</p>
+                <div class="meter">
+                    <div class="meter-fill ${high ? "meter-fill-danger" : "meter-fill-safe"}" style="width: ${Math.min(confidence * 100, 100)}%;"></div>
+                </div>
+            `;
+            resultCards.appendChild(card);
         }
-        return cookieValue;
-    }
+    };
 
-    // Delete button functionality
-    document.querySelectorAll('.delete-btn').forEach(function(deleteBtn) {
-        deleteBtn.addEventListener('click', function(event) {
-            event.stopPropagation();
-            const parentButton = deleteBtn.parentElement;
-            parentButton.remove();
+    const resetInferenceEmergencyUi = () => {
+        setStatus(emergencyStatus, "", "");
+        callEmergencyLink.hidden = true;
+        copySummaryButton.hidden = true;
+        incidentSummary.hidden = true;
+        incidentSummary.textContent = "";
+    };
+
+    const updatePreview = () => {
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+            previewUrl = null;
+        }
+
+        mediaPreview.innerHTML = "";
+        const file = mediaInput.files && mediaInput.files[0] ? mediaInput.files[0] : null;
+        if (!file) {
+            selectedFile.textContent = "No file selected.";
+            previewWrapper.hidden = true;
+            return;
+        }
+
+        selectedFile.textContent = `Selected: ${file.name}`;
+        previewUrl = URL.createObjectURL(file);
+        previewWrapper.hidden = false;
+
+        if (file.type.startsWith("image/")) {
+            const img = document.createElement("img");
+            img.src = previewUrl;
+            img.alt = "Preview";
+            img.className = "media-preview-visual";
+            mediaPreview.appendChild(img);
+            return;
+        }
+
+        if (file.type.startsWith("video/")) {
+            const video = document.createElement("video");
+            video.src = previewUrl;
+            video.controls = true;
+            video.className = "media-preview-visual";
+            mediaPreview.appendChild(video);
+            return;
+        }
+
+        mediaPreview.textContent = "Preview unavailable for this file type.";
+    };
+
+    const sendJson = async (url, payload) => {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfInput ? csrfInput.value : "",
+            },
+            body: JSON.stringify(payload),
         });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || "Request failed.");
+        }
+        return data;
+    };
+
+    mediaInput.addEventListener("change", () => {
+        clearResults();
+        setStatus(statusMessage, "", "");
+        updatePreview();
     });
 
-});
+    thresholdRange.addEventListener("input", updateThresholdDisplay);
 
-function closeSearchPopup() {
-    const searchPopup = document.getElementById("searchsymbol");
-    if (searchPopup) {
-        searchPopup.style.display = "none";
-    }
-}
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+
+        clearResults();
+        setStatus(statusMessage, "", "Running inference. This can take several seconds.");
+        runButton.disabled = true;
+
+        try {
+            const response = await fetch(inferEndpoint, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrfInput ? csrfInput.value : "",
+                },
+                body: formData,
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || "Inference request failed.");
+            }
+
+            latestResults = data.results || [];
+            latestResultsJson = JSON.stringify(latestResults, null, 2);
+            resultsPanel.hidden = false;
+            emergencyPanel.hidden = false;
+            renderRiskBanner(latestResults);
+            renderResultCards(latestResults);
+            setStatus(statusMessage, "success", "Inference completed successfully.");
+        } catch (error) {
+            setStatus(statusMessage, "error", error.message);
+        } finally {
+            runButton.disabled = false;
+        }
+    });
+
+    downloadResultsButton.addEventListener("click", () => {
+        if (!latestResultsJson) {
+            setStatus(statusMessage, "error", "No results available to download.");
+            return;
+        }
+
+        const blob = new Blob([latestResultsJson], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "inference-results.json";
+        anchor.click();
+        URL.revokeObjectURL(url);
+    });
+
+    prepareEmergencyButton.addEventListener("click", async () => {
+        if (latestResults.length === 0) {
+            setStatus(emergencyStatus, "error", "Run inference first to prepare emergency details from model outputs.");
+            return;
+        }
+
+        prepareEmergencyButton.disabled = true;
+        setStatus(emergencyStatus, "", "Preparing emergency summary from inference results...");
+        resetInferenceEmergencyUi();
+
+        try {
+            const data = await sendJson(emergencyEndpoint, {
+                location: incidentLocation.value.trim(),
+                notes: incidentNotes.value.trim(),
+                results: latestResults,
+            });
+
+            setStatus(emergencyStatus, "success", `${data.message} Incident ID: ${data.incident_id}`);
+            callEmergencyLink.href = `tel:${data.call_number}`;
+            callEmergencyLink.textContent = `Call ${data.call_number}`;
+            callEmergencyLink.hidden = false;
+            copySummaryButton.hidden = false;
+            incidentSummary.hidden = false;
+            incidentSummary.textContent = data.summary;
+        } catch (error) {
+            setStatus(emergencyStatus, "error", error.message);
+        } finally {
+            prepareEmergencyButton.disabled = false;
+        }
+    });
+
+    copySummaryButton.addEventListener("click", async () => {
+        if (!incidentSummary.textContent) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(incidentSummary.textContent);
+            setStatus(emergencyStatus, "success", "Inference emergency summary copied to clipboard.");
+        } catch (error) {
+            setStatus(emergencyStatus, "error", "Clipboard copy failed. Copy manually from the summary box.");
+        }
+    });
+
+    manualEmergencyButton.addEventListener("click", async () => {
+        manualEmergencyButton.disabled = true;
+        setStatus(manualEmergencyStatus, "", "Preparing standalone emergency report...");
+        manualCallLink.hidden = true;
+        manualCopySummaryButton.hidden = true;
+        manualIncidentSummary.hidden = true;
+        manualIncidentSummary.textContent = "";
+
+        try {
+            const data = await sendJson(emergencyStandaloneEndpoint, {
+                location: manualLocation.value.trim(),
+                incident_type: manualIncidentType.value,
+                severity: manualSeverity.value,
+                notes: manualNotes.value.trim(),
+            });
+
+            setStatus(manualEmergencyStatus, "success", `${data.message} Incident ID: ${data.incident_id}`);
+            manualCallLink.href = `tel:${data.call_number}`;
+            manualCallLink.textContent = `Call ${data.call_number}`;
+            manualCallLink.hidden = false;
+            manualCopySummaryButton.hidden = false;
+            manualIncidentSummary.hidden = false;
+            manualIncidentSummary.textContent = data.summary;
+        } catch (error) {
+            setStatus(manualEmergencyStatus, "error", error.message);
+        } finally {
+            manualEmergencyButton.disabled = false;
+        }
+    });
+
+    manualCopySummaryButton.addEventListener("click", async () => {
+        if (!manualIncidentSummary.textContent) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(manualIncidentSummary.textContent);
+            setStatus(manualEmergencyStatus, "success", "Standalone emergency summary copied to clipboard.");
+        } catch (error) {
+            setStatus(manualEmergencyStatus, "error", "Clipboard copy failed. Copy manually from the summary box.");
+        }
+    });
+
+    faqSearch.addEventListener("input", () => {
+        const query = faqSearch.value.trim().toLowerCase();
+        const items = faqList.querySelectorAll("details");
+        for (const item of items) {
+            const text = item.textContent.toLowerCase();
+            item.hidden = query && !text.includes(query);
+        }
+    });
+
+    contactForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        contactSubmitButton.disabled = true;
+        setStatus(contactStatus, "", "Submitting message...");
+
+        try {
+            const data = await sendJson(contactEndpoint, {
+                name: contactName.value.trim(),
+                email: contactEmail.value.trim(),
+                topic: contactTopic.value,
+                message: contactMessage.value.trim(),
+            });
+            setStatus(contactStatus, "success", `${data.message} Ticket: ${data.ticket_id}`);
+            contactForm.reset();
+        } catch (error) {
+            setStatus(contactStatus, "error", error.message);
+        } finally {
+            contactSubmitButton.disabled = false;
+        }
+    });
+
+    contactClearButton.addEventListener("click", () => {
+        contactForm.reset();
+        setStatus(contactStatus, "", "");
+    });
+
+    updateThresholdDisplay();
+});

@@ -3,61 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Crypto{% endblock %}</title>
+    <title>{% block title %}Anomaly Detection Dashboard{% endblock %}</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
 </head>
 <body>
-
-    <div id="topbar">
-
-        <button class="topbarbtn">
-            <img src="{% static 'images/magnifying.png' %}" alt="Search Symbol"></src>
-            <p id="smallsearch">Search</p>
-        </button>
-
-        <p class="separator">|</p>
-
-        <button class="topbarbtn" id="intervalbtn">
-            <p class="small">Alpha</p>
-        </button>
-
-        <p class="separator">|</p>
-
-        <button class="topbarbtn">
-            <p class="small">Beta</p>
-        </button>
-
-    </div>
-
-    <div id="canvas1">
-
-        <div id="sidebar">
-            <h3 id="watchlist">Watchlist</h3>
+    <header class="topbar">
+        <div>
+            <h1 class="brand">Aegis Incident Console</h1>
+            <p class="tagline">Fast threat screening, guided emergency escalation, and operator support.</p>
+        </div>
+        <div class="header-chip-row">
+            <span class="chip chip-safe">Live Monitoring</span>
+            <span class="chip chip-alert">Emergency: {{ emergency_number }}</span>
+        </div>
+    </header>
+    <div class="layout">
+        <aside class="sidebar">
+            <h2 class="sidebar-title">Navigation</h2>
             {% include '1/sidebar.html' %}
-        </div>
-
-        <main>
-            <div id="canvas2">
-                {% block content %}
-                {% endblock %}
+            <div class="sidebar-note">
+                <h3>Operator Tip</h3>
+                <p>
+                    Use the standalone emergency panel when you need to call first and document quickly,
+                    even without running model inference.
+                </p>
             </div>
+        </aside>
+        <main class="main-content">
+            <section class="hero-card">
+                <h2>{% block heading %}Run Combined Inference{% endblock %}</h2>
+                <p class="subtext">{% block subtext %}Upload one image or video and run both models in a single request.{% endblock %}</p>
+                <div class="hero-actions">
+                    <a href="#inference-section" class="hero-link">Start Analysis</a>
+                    <a href="#manual-emergency-section" class="hero-link danger">Emergency Flow</a>
+                </div>
+            </section>
+
+            <section class="panel" id="inference-section">
+                <h3>Model Inference</h3>
+                <form
+                    id="inference-form"
+                    data-endpoint="{% url 'run_inference' %}"
+                    data-emergency-endpoint="{% url 'contact_emergency' %}"
+                    data-emergency-standalone-endpoint="{% url 'contact_emergency_standalone' %}"
+                    data-contact-endpoint="{% url 'submit_contact_message' %}"
+                    enctype="multipart/form-data"
+                >
+                    {% csrf_token %}
+                    <label for="media-input">Upload media</label>
+                    <div class="upload-row">
+                        <input
+                            id="media-input"
+                            name="media"
+                            type="file"
+                            accept=".avi,.mp4,.mov,.mkv,.wmv,.webm,.m4v,.jpg,.jpeg,.png,.bmp,.tif,.tiff,.webp"
+                            required
+                        >
+                        <button type="submit" id="run-btn">Run Inference</button>
+                    </div>
+                    <p class="subtext compact" id="selected-file">No file selected.</p>
+                    <div id="preview-wrapper" hidden>
+                        <p class="subtext compact">Preview</p>
+                        <div id="media-preview"></div>
+                    </div>
+                    <label for="threshold-range">Emergency trigger threshold</label>
+                    <input id="threshold-range" type="range" min="0" max="1" step="0.01" value="0.60">
+                    <p class="subtext compact">Current threshold: <strong id="threshold-value">0.60</strong></p>
+                </form>
+                <p id="status-message" class="status" aria-live="polite"></p>
+            </section>
+
+            <section id="results-panel" class="panel" hidden>
+                <div class="panel-head-row">
+                    <h3>Inference Results</h3>
+                    <button id="download-results-btn" type="button" class="neutral-btn">Download JSON</button>
+                </div>
+                <p id="risk-banner" class="risk-banner"></p>
+                <div id="result-cards" class="result-cards"></div>
+            </section>
+
+            <section id="emergency-panel" class="panel" hidden>
+                <h3>Emergency From Inference</h3>
+                <p class="subtext">
+                    Generate an incident report using model outputs, then place the call.
+                </p>
+                <label for="incident-location">Incident location</label>
+                <input id="incident-location" type="text" placeholder="e.g. Building A, Floor 2, Room 204">
+                <label for="incident-notes">Operator notes</label>
+                <textarea id="incident-notes" rows="3" placeholder="Add optional notes before contacting emergency services."></textarea>
+                <div class="action-row">
+                    <button id="prepare-emergency-btn" type="button">Prepare Emergency Contact</button>
+                    <a id="call-emergency-link" href="#" hidden>Call Emergency Services</a>
+                    <button id="copy-summary-btn" type="button" hidden>Copy Incident Summary</button>
+                </div>
+                <p id="emergency-status" class="status" aria-live="polite"></p>
+                <pre id="incident-summary" hidden></pre>
+            </section>
+
+            <section class="panel" id="manual-emergency-section">
+                <h3>Standalone Emergency Contact</h3>
+                <p class="subtext">
+                    Use this if you need to contact emergency services immediately without waiting for inference.
+                </p>
+                <div class="two-col-grid">
+                    <div>
+                        <label for="manual-location">Location</label>
+                        <input id="manual-location" type="text" placeholder="e.g. Parking Lot C">
+                    </div>
+                    <div>
+                        <label for="manual-incident-type">Incident type</label>
+                        <select id="manual-incident-type">
+                            <option value="Fire/Smoke">Fire/Smoke</option>
+                            <option value="Violence/Threat">Violence/Threat</option>
+                            <option value="Medical Emergency">Medical Emergency</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="manual-severity">Severity</label>
+                        <select id="manual-severity">
+                            <option value="high">High</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="manual-notes">Notes</label>
+                        <textarea id="manual-notes" rows="3" placeholder="Optional context for responders."></textarea>
+                    </div>
+                </div>
+                <div class="action-row">
+                    <button id="manual-emergency-btn" type="button">Prepare Standalone Emergency Contact</button>
+                    <a id="manual-call-link" href="#" hidden>Call {{ emergency_number }}</a>
+                    <button id="manual-copy-summary-btn" type="button" hidden>Copy Standalone Summary</button>
+                </div>
+                <p id="manual-emergency-status" class="status" aria-live="polite"></p>
+                <pre id="manual-incident-summary" hidden></pre>
+            </section>
+
+            <section class="panel" id="faq-section">
+                <h3>FAQs</h3>
+                <input id="faq-search" type="text" placeholder="Search FAQ (e.g. threshold, emergency, upload)">
+                <div id="faq-list" class="faq-list">
+                    <details>
+                        <summary>What files are supported for inference?</summary>
+                        <p>Images: jpg, jpeg, png, bmp, tif, tiff, webp. Videos: avi, mp4, mov, mkv, wmv, webm, m4v.</p>
+                    </details>
+                    <details>
+                        <summary>How should I set the emergency threshold?</summary>
+                        <p>Start around 0.60 and tune by your false-positive tolerance. Lower catches more events but increases noise.</p>
+                    </details>
+                    <details>
+                        <summary>Can I call emergency services without running inference?</summary>
+                        <p>Yes. Use the Standalone Emergency Contact section to generate a manual incident summary and call link.</p>
+                    </details>
+                    <details>
+                        <summary>Does the system auto-dial emergency services?</summary>
+                        <p>No. It provides a call link and structured summary; a human operator initiates the call.</p>
+                    </details>
+                </div>
+            </section>
+
+            <section class="panel" id="contact-section">
+                <h3>Contact Us</h3>
+                <p class="subtext">Send platform feedback, support requests, or deployment questions.</p>
+                <form id="contact-form">
+                    <div class="two-col-grid">
+                        <div>
+                            <label for="contact-name">Name</label>
+                            <input id="contact-name" type="text" required>
+                        </div>
+                        <div>
+                            <label for="contact-email">Email</label>
+                            <input id="contact-email" type="email" required>
+                        </div>
+                        <div>
+                            <label for="contact-topic">Topic</label>
+                            <select id="contact-topic">
+                                <option value="General">General</option>
+                                <option value="Bug Report">Bug Report</option>
+                                <option value="Model Performance">Model Performance</option>
+                                <option value="Integration Support">Integration Support</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="contact-message">Message</label>
+                            <textarea id="contact-message" rows="4" required></textarea>
+                        </div>
+                    </div>
+                    <div class="action-row">
+                        <button id="contact-submit-btn" type="submit" class="neutral-btn">Send Message</button>
+                        <button id="contact-clear-btn" type="button" class="ghost-btn">Clear</button>
+                    </div>
+                </form>
+                <p id="contact-status" class="status" aria-live="polite"></p>
+            </section>
         </main>
-
     </div>
-
-    <div id="searchsymbol">
-        <div id="searchcontent">
-            <span class="close">&times;</span>
-            <h2>Search for Symbols</h2>
-            <input type="text" id="searchinput" placeholder="Search Symbol" list="symbolsuggestions">
-            <datalist id="symbolsuggestions">
-                <option value="Bitcoin"></option>
-                <option value="Ethereum"></option>
-            </datalist>
-        </div>
-    </div>
-
     <script src="{% static 'scripts/base.js' %}"></script>
 </body>
 </html>
